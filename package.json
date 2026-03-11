@@ -1,0 +1,18 @@
+{
+  "name": "hubspot-copilot",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "extension"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:extension": "npm run dev --workspace=extension",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:extension\"",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

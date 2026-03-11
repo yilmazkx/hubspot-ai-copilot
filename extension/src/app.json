@@ -1,0 +1,13 @@
+{
+  "name": "AI Copilot",
+  "description": "Chat with your CRM using AI",
+  "uid": "ai-copilot-card",
+  "type": "crm-card",
+  "location": "crm.record.sidebar",
+  "objectTypes": ["DEAL", "CONTACT", "COMPANY"],
+  "associatedObjectTypes": [],
+  "serverlessFunctions": {
+    "chat": "serverless/chat.js",
+    "confirm": "serverless/confirm.js"
+  }
+}

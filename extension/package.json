@@ -1,0 +1,13 @@
+{
+  "name": "hubspot-copilot-extension",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "hs project dev",
+    "upload": "hs project upload"
+  },
+  "dependencies": {
+    "@hubspot/ui-extensions": "^0.12.2",
+    "react": "^18.2.0"
+  }
+}

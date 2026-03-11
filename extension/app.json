@@ -1,0 +1,33 @@
+{
+  "name": "AI Copilot for HubSpot",
+  "description": "AI-powered CRM assistant that helps sales managers manage deals, draft emails, and automate follow-ups using natural conversation.",
+  "uid": "hubspot-ai-copilot",
+  "scopes": [
+    "crm.objects.deals.read",
+    "crm.objects.deals.write",
+    "crm.objects.contacts.read",
+    "crm.objects.contacts.write",
+    "crm.schemas.deals.read",
+    "sales-email-read",
+    "timeline"
+  ],
+  "public": true,
+  "webhooks": {
+    "events": [
+      {
+        "type": "app.uninstall",
+        "uri": "/webhooks/uninstall"
+      }
+    ]
+  },
+  "extensions": {
+    "crm": {
+      "cards": [
+        {
+          "file": "src/app.json",
+          "location": "crm.record.sidebar"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,218 @@
+// Claude tool definitions (JSON schema format)
+
+const READ_TOOLS = [
+  {
+    name: "get_pipeline_summary",
+    description:
+      "Get a summary of all deal pipelines with stages, deal counts, and total values per stage. Use this to give the user an overview of their sales pipeline.",
+    input_schema: {
+      type: "object",
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "get_deals",
+    description:
+      "Search and filter deals in HubSpot CRM. Returns deal details with associated contacts. Supports filtering by stage, owner, minimum value, stale days, and limit.",
+    input_schema: {
+      type: "object",
+      properties: {
+        stage: {
+          type: "string",
+          description: "Filter by deal stage ID or name (e.g. 'appointmentscheduled', 'closedwon')",
+        },
+        owner: {
+          type: "string",
+          description: "Filter by HubSpot owner ID",
+        },
+        min_value: {
+          type: "number",
+          description: "Minimum deal amount to filter by",
+        },
+        stale_days: {
+          type: "number",
+          description: "Only return deals with no activity in this many days",
+        },
+        limit: {
+          type: "number",
+          description: "Max number of deals to return (default 20)",
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "get_deal_detail",
+    description:
+      "Get full details for a specific deal including contacts, activity history, emails, calls, and notes. Use this to understand the full context of a deal.",
+    input_schema: {
+      type: "object",
+      properties: {
+        deal_id: {
+          type: "string",
+          description: "The HubSpot deal ID",
+        },
+      },
+      required: ["deal_id"],
+    },
+  },
+  {
+    name: "get_stale_deals",
+    description:
+      "Get deals with no activity in the specified number of days. Useful for finding deals that need follow-up.",
+    input_schema: {
+      type: "object",
+      properties: {
+        days: {
+          type: "number",
+          description: "Number of days of inactivity to consider a deal stale",
+        },
+      },
+      required: ["days"],
+    },
+  },
+  {
+    name: "get_contacts",
+    description:
+      "Search contacts in HubSpot by name, email, company, or any text query.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search query (name, email, company, etc.)",
+        },
+      },
+      required: ["query"],
+    },
+  },
+];
+
+const WRITE_TOOLS = [
+  {
+    name: "create_draft_email",
+    description:
+      "Create a draft email associated with a deal. The draft will be saved but NOT sent until the user confirms. Always use this before send_email to let the user review first.",
+    input_schema: {
+      type: "object",
+      properties: {
+        deal_id: {
+          type: "string",
+          description: "The deal ID to associate the email with",
+        },
+        to_email: {
+          type: "string",
+          description: "Recipient email address",
+        },
+        subject: {
+          type: "string",
+          description: "Email subject line",
+        },
+        body: {
+          type: "string",
+          description: "Email body content (plain text or HTML)",
+        },
+      },
+      required: ["deal_id", "to_email", "subject", "body"],
+    },
+  },
+  {
+    name: "send_email",
+    description:
+      "Send an email associated with a deal. This will actually send the email. Requires user confirmation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        deal_id: {
+          type: "string",
+          description: "The deal ID to associate the email with",
+        },
+        to_email: {
+          type: "string",
+          description: "Recipient email address",
+        },
+        subject: {
+          type: "string",
+          description: "Email subject line",
+        },
+        body: {
+          type: "string",
+          description: "Email body content",
+        },
+      },
+      required: ["deal_id", "to_email", "subject", "body"],
+    },
+  },
+  {
+    name: "create_task",
+    description:
+      "Create a follow-up task associated with a deal. Requires user confirmation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        deal_id: {
+          type: "string",
+          description: "The deal ID to associate the task with",
+        },
+        title: {
+          type: "string",
+          description: "Task title/subject",
+        },
+        due_date: {
+          type: "string",
+          description: "Due date in ISO format (e.g. 2025-01-15)",
+        },
+        notes: {
+          type: "string",
+          description: "Additional notes for the task",
+        },
+      },
+      required: ["deal_id", "title", "due_date"],
+    },
+  },
+  {
+    name: "update_deal_stage",
+    description:
+      "Move a deal to a different pipeline stage. Requires user confirmation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        deal_id: {
+          type: "string",
+          description: "The deal ID to update",
+        },
+        new_stage: {
+          type: "string",
+          description: "The stage ID to move the deal to",
+        },
+      },
+      required: ["deal_id", "new_stage"],
+    },
+  },
+  {
+    name: "add_note",
+    description:
+      "Add a note to a deal's timeline. Requires user confirmation.",
+    input_schema: {
+      type: "object",
+      properties: {
+        deal_id: {
+          type: "string",
+          description: "The deal ID to add the note to",
+        },
+        note_body: {
+          type: "string",
+          description: "The note content (supports HTML)",
+        },
+      },
+      required: ["deal_id", "note_body"],
+    },
+  },
+];
+
+const WRITE_TOOL_NAMES = new Set(WRITE_TOOLS.map((t) => t.name));
+
+const ALL_TOOLS = [...READ_TOOLS, ...WRITE_TOOLS];
+
+module.exports = { ALL_TOOLS, WRITE_TOOL_NAMES, READ_TOOLS, WRITE_TOOLS };

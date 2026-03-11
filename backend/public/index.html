@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HubSpot AI Copilot</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #e8eef3;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .shell {
+      width: 420px;
+      height: 700px;
+      background: #f5f8fa;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: #fff;
+      border-bottom: 1px solid #cbd6e2;
+    }
+    .header-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: #ff7a59;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .header-title { font-size: 16px; font-weight: 600; color: #33475b; }
+    .header-badge {
+      margin-left: auto;
+      font-size: 11px;
+      padding: 3px 8px;
+      background: #e8f7f3;
+      color: #00a182;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    /* Messages */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .messages::-webkit-scrollbar { width: 6px; }
+    .messages::-webkit-scrollbar-thumb { background: #cbd6e2; border-radius: 3px; }
+
+    .msg-row { display: flex; width: 100%; }
+    .msg-row.user { justify-content: flex-end; }
+    .msg-row.assistant { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 85%;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .bubble.user {
+      background: #ff7a59;
+      color: #fff;
+      border-radius: 16px 16px 4px 16px;
+    }
+    .bubble.assistant {
+      background: #fff;
+      border: 1px solid #cbd6e2;
+      color: #33475b;
+      border-radius: 16px 16px 16px 4px;
+    }
+    .bubble-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #516f90;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 4px;
+    }
+
+    /* Tool steps */
+    .tool-steps {
+      padding: 10px 14px;
+      background: #eaf0f6;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .tool-step {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: #33475b;
+    }
+    .tool-step .icon { width: 20px; text-align: center; font-size: 14px; }
+
+    /* Pending actions */
+    .pending-card {
+      border: 1px solid #f5c26b;
+      border-radius: 8px;
+      background: #fffbf2;
+      overflow: hidden;
+    }
+    .pending-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px;
+      background: #fff3cd;
+      border-bottom: 1px solid #f5c26b;
+      font-size: 13px; font-weight: 600; color: #33475b;
+    }
+    .pending-list { padding: 8px 14px; display: flex; flex-direction: column; gap: 6px; }
+    .pending-item {
+      border: 1px solid #e5e5e5; border-radius: 6px;
+      background: #fff; overflow: hidden;
+    }
+    .pending-item-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; cursor: pointer; font-size: 13px;
+    }
+    .pending-item-header .label { font-weight: 600; color: #33475b; }
+    .pending-item-header .meta { color: #516f90; font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pending-item-header .arrow { font-size: 10px; color: #7c98b6; }
+    .pending-detail {
+      padding: 8px 12px; border-top: 1px solid #eee;
+      font-size: 13px; color: #33475b;
+      display: none; flex-direction: column; gap: 4px;
+    }
+    .pending-detail.open { display: flex; }
+    .pending-detail .body-preview {
+      margin-top: 4px; padding: 8px;
+      background: #f5f8fa; border-radius: 4px;
+      font-size: 12px; line-height: 1.5;
+      white-space: pre-wrap; max-height: 150px; overflow-y: auto;
+    }
+    .pending-buttons {
+      display: flex; gap: 8px; padding: 10px 14px;
+      border-top: 1px solid #f5c26b;
+    }
+    .btn-confirm {
+      flex: 1; padding: 8px 16px; background: #00bda5; color: #fff;
+      border: none; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-confirm:hover { background: #00a182; }
+    .btn-discard {
+      flex: 1; padding: 8px 16px; background: #fff; color: #516f90;
+      border: 1px solid #cbd6e2; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-discard:hover { background: #f5f8fa; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 40px 16px; }
+    .empty h3 { font-size: 16px; font-weight: 600; color: #33475b; margin-bottom: 4px; }
+    .empty p { font-size: 13px; color: #516f90; margin-bottom: 14px; }
+    .suggestions { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+    .suggestion-btn {
+      padding: 8px 16px; border: 1px solid #cbd6e2; border-radius: 20px;
+      background: #fff; color: #33475b; font-size: 13px; cursor: pointer;
+      max-width: 320px; width: 100%; transition: border-color .15s;
+    }
+    .suggestion-btn:hover { border-color: #ff7a59; color: #ff7a59; }
+
+    /* Thinking dots */
+    .thinking {
+      display: flex; align-items: center; gap: 2px; padding: 8px 12px;
+    }
+    .thinking .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #516f90;
+      animation: bounce 1.4s infinite ease-in-out;
+    }
+    .thinking .dot:nth-child(1) { animation-delay: 0s; }
+    .thinking .dot:nth-child(2) { animation-delay: .2s; }
+    .thinking .dot:nth-child(3) { animation-delay: .4s; }
+    .thinking span { margin-left: 8px; color: #516f90; font-size: 13px; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Input */
+    .input-area {
+      display: flex; gap: 8px; padding: 12px 16px;
+      background: #fff; border-top: 1px solid #cbd6e2;
+    }
+    .input-area input {
+      flex: 1; padding: 10px 12px; border: 1px solid #cbd6e2;
+      border-radius: 6px; font-size: 14px; outline: none;
+      transition: border-color .15s;
+    }
+    .input-area input:focus { border-color: #ff7a59; }
+    .input-area input:disabled { background: #f5f8fa; }
+    .send-btn {
+      padding: 10px 20px; background: #ff7a59; color: #fff;
+      border: none; border-radius: 6px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background .15s;
+    }
+    .send-btn:hover { background: #e5664a; }
+    .send-btn:disabled { background: #cbd6e2; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="header-icon">AI</div>
+      <div class="header-title">CRM Copilot</div>
+      <div class="header-badge">DEMO</div>
+    </div>
+    <div class="messages" id="messages">
+      <div class="empty" id="empty-state">
+        <h3>Hi! I'm your CRM Copilot.</h3>
+        <p>Try asking:</p>
+        <div class="suggestions">
+          <button class="suggestion-btn" onclick="useSuggestion(this)">Show me my pipeline summary</button>
+          <button class="suggestion-btn" onclick="useSuggestion(this)">Find deals with no activity in 14 days</button>
+          <button class="suggestion-btn" onclick="useSuggestion(this)">Draft follow-up emails for demo done deals</button>
+          <button class="suggestion-btn" onclick="useSuggestion(this)">Tell me about the Acme deal</button>
+          <button class="suggestion-btn" onclick="useSuggestion(this)">Search contacts Globex</button>
+        </div>
+      </div>
+    </div>
+    <div class="input-area">
+      <input type="text" id="chat-input" placeholder="Ask about your deals, pipeline, contacts..." onkeydown="if(event.key==='Enter')sendMessage()" />
+      <button class="send-btn" id="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+<script>
+const BACKEND = window.location.origin;
+const PORTAL_ID = "demo";
+
+let messages = [];
+let loading = false;
+let currentPending = [];
+
+const TOOL_LABELS = {
+  get_pipeline_summary: "Fetching pipeline summary",
+  get_deals: "Searching deals",
+  get_deal_detail: "Loading deal details",
+  get_stale_deals: "Finding stale deals",
+  get_contacts: "Searching contacts",
+  create_draft_email: "Creating draft email",
+  send_email: "Sending email",
+  create_task: "Creating task",
+  update_deal_stage: "Updating deal stage",
+  add_note: "Adding note",
+};
+const STATUS_ICONS = { executing: "\u{1F50D}", complete: "\u2705", error: "\u274C", pending_confirmation: "\u23F3" };
+const ACTION_LABELS = {
+  create_draft_email: "Draft Email", send_email: "Send Email",
+  create_task: "Create Task", update_deal_stage: "Move Deal Stage", add_note: "Add Note",
+};
+
+function useSuggestion(btn) {
+  document.getElementById("chat-input").value = btn.textContent;
+  sendMessage();
+}
+
+function setLoading(v) {
+  loading = v;
+  document.getElementById("send-btn").disabled = v;
+  document.getElementById("chat-input").disabled = v;
+}
+
+function scrollBottom() {
+  const el = document.getElementById("messages");
+  el.scrollTop = el.scrollHeight;
+}
+
+function formatText(text) {
+  return text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+function renderMessages() {
+  const container = document.getElementById("messages");
+  const empty = document.getElementById("empty-state");
+  if (empty && messages.length > 0) empty.remove();
+
+  // Clear everything after empty state removal and re-render
+  container.innerHTML = "";
+  for (const msg of messages) {
+    const row = document.createElement("div");
+    row.className = "msg-row " + msg.role;
+    const bubble = document.createElement("div");
+    bubble.className = "bubble " + msg.role;
+    if (msg.role === "assistant") {
+      bubble.innerHTML = '<div class="bubble-label">Copilot</div>' + formatText(msg.content);
+    } else {
+      bubble.textContent = msg.content;
+    }
+    row.appendChild(bubble);
+    container.appendChild(row);
+  }
+  scrollBottom();
+}
+
+function showThinking() {
+  const container = document.getElementById("messages");
+  const div = document.createElement("div");
+  div.id = "thinking";
+  div.className = "thinking";
+  div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div><span>Thinking</span>';
+  container.appendChild(div);
+  scrollBottom();
+}
+
+function removeThinking() {
+  const el = document.getElementById("thinking");
+  if (el) el.remove();
+}
+
+function showToolSteps(steps) {
+  if (!steps || steps.length === 0) return;
+  removeThinking();
+  const container = document.getElementById("messages");
+  // Remove previous tool steps
+  const prev = document.getElementById("tool-steps");
+  if (prev) prev.remove();
+
+  const div = document.createElement("div");
+  div.id = "tool-steps";
+  div.className = "tool-steps";
+  for (const s of steps) {
+    const step = document.createElement("div");
+    step.className = "tool-step";
+    step.innerHTML = `<span class="icon">${STATUS_ICONS[s.status] || "\u{1F504}"}</span><span>${TOOL_LABELS[s.tool] || s.tool}</span>`;
+    div.appendChild(step);
+  }
+  container.appendChild(div);
+  scrollBottom();
+}
+
+function showPendingActions(actions) {
+  if (!actions || actions.length === 0) return;
+  currentPending = actions;
+  const container = document.getElementById("messages");
+
+  const card = document.createElement("div");
+  card.className = "pending-card";
+  card.id = "pending-card";
+
+  card.innerHTML = `
+    <div class="pending-header">\u26A0\uFE0F ${actions.length} action${actions.length > 1 ? "s" : ""} pending confirmation</div>
+    <div class="pending-list">
+      ${actions.map((a, i) => `
+        <div class="pending-item">
+          <div class="pending-item-header" onclick="toggleDetail(${i})">
+            <span class="label">${ACTION_LABELS[a.tool] || a.tool}</span>
+            <span class="meta">${a.input.to_email || a.input.title || a.input.new_stage || ""}</span>
+            <span class="arrow" id="arrow-${i}">\u25BC</span>
+          </div>
+          <div class="pending-detail" id="detail-${i}">
+            ${a.input.subject ? `<div><strong>Subject:</strong> ${esc(a.input.subject)}</div>` : ""}
+            ${a.input.body ? `<div><strong>Body:</strong><div class="body-preview">${esc(a.input.body)}</div></div>` : ""}
+            ${a.input.new_stage ? `<div><strong>New Stage:</strong> ${esc(a.input.new_stage)}</div>` : ""}
+            ${a.input.due_date ? `<div><strong>Due:</strong> ${esc(a.input.due_date)}</div>` : ""}
+            ${a.input.note_body ? `<div><strong>Note:</strong><div class="body-preview">${esc(a.input.note_body)}</div></div>` : ""}
+            <div style="margin-top:4px;font-size:12px;color:#7c98b6">Deal ID: ${a.input.deal_id}</div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+    <div class="pending-buttons">
+      <button class="btn-confirm" onclick="confirmActions()">Confirm All</button>
+      <button class="btn-discard" onclick="discardActions()">Discard</button>
+    </div>
+  `;
+  container.appendChild(card);
+  scrollBottom();
+}
+
+function esc(s) {
+  if (!s) return "";
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function toggleDetail(i) {
+  const el = document.getElementById("detail-" + i);
+  const arrow = document.getElementById("arrow-" + i);
+  if (el.classList.contains("open")) {
+    el.classList.remove("open");
+    arrow.textContent = "\u25BC";
+  } else {
+    el.classList.add("open");
+    arrow.textContent = "\u25B2";
+  }
+}
+
+async function confirmActions() {
+  setLoading(true);
+  const card = document.getElementById("pending-card");
+  try {
+    const res = await fetch(BACKEND + "/api/chat/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        portalId: PORTAL_ID,
+        actions: currentPending.map(a => ({ tool: a.tool, input: a.input })),
+      }),
+    });
+    const data = await res.json();
+    const summary = data.results.map(r =>
+      r.status === "success" ? `\u2705 ${ACTION_LABELS[r.tool] || r.tool}: Done` : `\u274C ${ACTION_LABELS[r.tool] || r.tool}: ${r.error}`
+    ).join("\n");
+    if (card) card.remove();
+    messages.push({ role: "assistant", content: summary });
+    renderMessages();
+  } catch {
+    messages.push({ role: "assistant", content: "Failed to execute actions." });
+    renderMessages();
+  }
+  currentPending = [];
+  setLoading(false);
+}
+
+function discardActions() {
+  const card = document.getElementById("pending-card");
+  if (card) card.remove();
+  currentPending = [];
+  messages.push({ role: "assistant", content: "Actions discarded." });
+  renderMessages();
+}
+
+async function sendMessage() {
+  const input = document.getElementById("chat-input");
+  const text = input.value.trim();
+  if (!text || loading) return;
+
+  messages.push({ role: "user", content: text });
+  input.value = "";
+  renderMessages();
+  setLoading(true);
+  showThinking();
+
+  try {
+    const res = await fetch(BACKEND + "/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        portalId: PORTAL_ID,
+      }),
+    });
+    const data = await res.json();
+    removeThinking();
+
+    if (data.toolSteps?.length > 0) {
+      showToolSteps(data.toolSteps);
+    }
+
+    if (data.error) {
+      messages.push({ role: "assistant", content: "Error: " + data.error });
+    } else {
+      messages.push({ role: "assistant", content: data.response });
+    }
+    renderMessages();
+
+    // Re-render tool steps after renderMessages clears them
+    if (data.toolSteps?.length > 0) {
+      // Insert tool steps before the last assistant message
+      const container = document.getElementById("messages");
+      const msgRows = container.querySelectorAll(".msg-row");
+      const lastRow = msgRows[msgRows.length - 1];
+      const stepsDiv = document.createElement("div");
+      stepsDiv.className = "tool-steps";
+      for (const s of data.toolSteps) {
+        const step = document.createElement("div");
+        step.className = "tool-step";
+        step.innerHTML = `<span class="icon">${STATUS_ICONS[s.status] || "\u{1F504}"}</span><span>${TOOL_LABELS[s.tool] || s.tool}</span>`;
+        stepsDiv.appendChild(step);
+      }
+      container.insertBefore(stepsDiv, lastRow);
+    }
+
+    if (data.pendingActions?.length > 0) {
+      showPendingActions(data.pendingActions);
+    }
+  } catch {
+    removeThinking();
+    messages.push({ role: "assistant", content: "Failed to reach the backend. Is the server running?" });
+    renderMessages();
+  }
+  setLoading(false);
+  scrollBottom();
+}
+</script>
+</body>
+</html>

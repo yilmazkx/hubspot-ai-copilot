@@ -1,0 +1,23 @@
+type: ui-extension
+name: AI Copilot
+uid: ai-copilot
+description: AI-powered CRM assistant using Claude
+card:
+  title: AI Copilot
+  location: crm.record.sidebar
+  objectTypes:
+    - DEAL
+    - CONTACT
+    - COMPANY
+  file: src/App.jsx
+  serverlessFunctions:
+    chat:
+      file: src/serverless/chat.js
+      endpoint: chat
+      secrets:
+        - BACKEND_URL
+    confirm:
+      file: src/serverless/confirm.js
+      endpoint: confirm
+      secrets:
+        - BACKEND_URL
