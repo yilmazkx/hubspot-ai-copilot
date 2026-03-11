@@ -293,6 +293,22 @@ router.post("/chat", chatLimiter, async (req, res) => {
       return res.status(400).json({ error: "messages array is required" });
     }
 
+    // Check if HubSpot is authorized before proceeding (skip in demo mode)
+    if (!DEMO_MODE && process.env.HUBSPOT_CLIENT_ID) {
+      const { getTokens } = require("../hubspot/client");
+      const tokens = await getTokens(portalId);
+      if (!tokens) {
+        const authUrl = `${req.protocol}://${req.get("host")}/auth/authorize`;
+        return res.json({
+          response: null,
+          auth_required: true,
+          auth_url: authUrl,
+          toolSteps: [],
+          pendingActions: [],
+        });
+      }
+    }
+
     const result = DEMO_MODE
       ? await handleDemoChat(messages, portalId)
       : await handleClaudeChat(messages, portalId, dealId);

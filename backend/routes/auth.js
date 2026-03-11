@@ -52,18 +52,29 @@ router.get("/callback", async (req, res) => {
       expiresIn: tokenResponse.expiresIn,
     });
 
-    // Redirect to a success page instead of raw JSON
+    // Success page — auto-closes after 2s if opened as popup
     res.send(`<!DOCTYPE html>
 <html><head><title>Connected!</title>
 <style>body{font-family:-apple-system,system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f5f8fa;margin:0}
 .card{background:#fff;border-radius:12px;padding:40px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.1);max-width:400px}
 h2{color:#00bda5;margin-bottom:8px}p{color:#33475b;font-size:15px}
-.portal{background:#eaf0f6;padding:8px 16px;border-radius:6px;font-family:monospace;margin:12px 0;display:inline-block}</style></head>
+.portal{background:#eaf0f6;padding:8px 16px;border-radius:6px;font-family:monospace;margin:12px 0;display:inline-block}
+.closing{color:#516f90;font-size:13px;margin-top:12px}</style></head>
 <body><div class="card">
 <h2>Connected Successfully</h2>
 <p>Portal <span class="portal">${portalId}</span> is now linked to AI Copilot.</p>
-<p>You can close this window and return to HubSpot.</p>
-</div></body></html>`);
+<p>You can now use the copilot in HubSpot.</p>
+<p class="closing" id="closing"></p>
+</div>
+<script>
+// Notify the opener window (if opened via window.open)
+if (window.opener) {
+  window.opener.postMessage({ type: 'hs-copilot-auth-success', portalId: '${portalId}' }, '*');
+  document.getElementById('closing').textContent = 'Closing automatically...';
+  setTimeout(() => window.close(), 2000);
+}
+</script>
+</body></html>`);
   } catch (err) {
     console.error("OAuth callback error:", err);
     res.status(500).json({ error: "Failed to complete OAuth flow", details: err.message });

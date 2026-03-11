@@ -317,6 +317,9 @@
 }
 .copilot-btn-discard:hover { background: #f5f8fa; }
 
+/* Auth button */
+#copilot-auth-btn:hover { background: #e5664a !important; }
+
 /* Thinking animation */
 .copilot-thinking {
   display: flex;

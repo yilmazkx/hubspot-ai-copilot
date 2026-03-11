@@ -253,6 +253,53 @@
     if (el) el.remove();
   }
 
+  function showAuthPrompt(authUrl) {
+    const container = document.getElementById("copilot-messages");
+    const card = document.createElement("div");
+    card.className = "copilot-pending";
+    card.id = "copilot-auth-card";
+    card.innerHTML = `
+      <div class="copilot-pending-header">\u{1F511} HubSpot authorization required</div>
+      <div style="padding:16px 14px;font-size:14px;color:#33475b;line-height:1.6">
+        <p>I need access to your HubSpot CRM to help you. Click below to connect your account — it only takes a few seconds.</p>
+        <div style="margin-top:12px;text-align:center">
+          <button id="copilot-auth-btn" style="
+            padding:12px 32px;background:#ff7a59;color:#fff;border:none;border-radius:6px;
+            font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;
+          ">Connect HubSpot</button>
+        </div>
+        <p style="margin-top:12px;font-size:12px;color:#516f90;text-align:center">
+          Opens a new window to authorize. You'll be redirected back automatically.
+        </p>
+      </div>
+    `;
+    container.appendChild(card);
+    scrollBottom();
+
+    document.getElementById("copilot-auth-btn").addEventListener("click", () => {
+      // Open auth in a popup window
+      const w = 600, h = 700;
+      const left = (screen.width - w) / 2;
+      const top = (screen.height - h) / 2;
+      window.open(authUrl, "hs-copilot-auth", `width=${w},height=${h},left=${left},top=${top}`);
+    });
+  }
+
+  // Listen for auth success from the popup callback page
+  window.addEventListener("message", (event) => {
+    if (event.data?.type === "hs-copilot-auth-success") {
+      // Remove the auth card
+      const card = document.getElementById("copilot-auth-card");
+      if (card) card.remove();
+      // Show success message
+      messages.push({
+        role: "assistant",
+        content: "Connected to HubSpot portal " + event.data.portalId + ". You're all set! Try your question again.",
+      });
+      renderMessages();
+    }
+  });
+
   function showToolSteps(steps) {
     if (!steps || steps.length === 0) return;
     removeThinking();
@@ -349,6 +396,13 @@
 
       const data = await res.json();
       removeThinking();
+
+      // Handle auth_required — show clickable authorize link
+      if (data.auth_required) {
+        showAuthPrompt(data.auth_url);
+        setLoading(false);
+        return;
+      }
 
       if (data.toolSteps?.length > 0) showToolSteps(data.toolSteps);
 
