@@ -10,6 +10,10 @@
     get_deal_detail: "Loading deal details",
     get_stale_deals: "Finding stale deals",
     get_contacts: "Searching contacts",
+    get_current_record: "Loading current record",
+    get_company_detail: "Fetching company details",
+    web_search: "Searching the web",
+    fetch_webpage: "Reading webpage",
     create_draft_email: "Creating draft email",
     send_email: "Sending email",
     create_task: "Creating task",
@@ -37,37 +41,106 @@
   let isOpen = false;
   let settingsVisible = false;
 
-  // --- Detect HubSpot context from URL ---
+  // --- Detect HubSpot context from URL + page ---
   function getHubSpotContext() {
     const url = window.location.href;
-    const ctx = { portalId: null, objectType: null, objectId: null };
+    const ctx = { portalId: null, objectType: null, objectId: null, pageData: null };
 
-    // Portal ID: /contacts/12345/... or path segment
+    // Portal ID from URL patterns
     const portalMatch = url.match(/app(?:-eu1)?\.hubspot\.com\/contacts\/(\d+)/);
     if (portalMatch) ctx.portalId = portalMatch[1];
 
-    // Deal: /deal/123
-    const dealMatch = url.match(/\/deal\/(\d+)/);
-    if (dealMatch) {
-      ctx.objectType = "deal";
-      ctx.objectId = dealMatch[1];
+    // Record type detection — HubSpot URL patterns
+    const patterns = [
+      { regex: /\/record\/0-1\/(\d+)/, type: "contact" },   // contact
+      { regex: /\/record\/0-2\/(\d+)/, type: "company" },   // company
+      { regex: /\/record\/0-3\/(\d+)/, type: "deal" },      // deal
+      { regex: /\/record\/0-5\/(\d+)/, type: "ticket" },    // ticket
+      { regex: /\/contact\/(\d+)/, type: "contact" },
+      { regex: /\/company\/(\d+)/, type: "company" },
+      { regex: /\/deal\/(\d+)/, type: "deal" },
+      { regex: /\/ticket\/(\d+)/, type: "ticket" },
+      { regex: /\/lead\/(\d+)/, type: "lead" },
+    ];
+
+    for (const p of patterns) {
+      const m = url.match(p.regex);
+      if (m) {
+        ctx.objectType = p.type;
+        ctx.objectId = m[1];
+        break;
+      }
     }
 
-    // Contact: /contact/123
-    const contactMatch = url.match(/\/contact\/(\d+)/);
-    if (contactMatch) {
-      ctx.objectType = "contact";
-      ctx.objectId = contactMatch[1];
+    // Detect list views
+    if (!ctx.objectType) {
+      if (url.includes("/deals/")) ctx.pageView = "deals_list";
+      else if (url.includes("/contacts/") && url.match(/contacts\/\d+\/objects\/0-1/)) ctx.pageView = "contacts_list";
+      else if (url.includes("/companies/")) ctx.pageView = "companies_list";
     }
 
-    // Company: /company/123
-    const companyMatch = url.match(/\/company\/(\d+)/);
-    if (companyMatch) {
-      ctx.objectType = "company";
-      ctx.objectId = companyMatch[1];
-    }
+    // Scrape visible data from the page
+    ctx.pageData = scrapePageData();
 
     return ctx;
+  }
+
+  function scrapePageData() {
+    const data = {};
+
+    // Record name / title (main heading)
+    const heading = document.querySelector('[data-test-id="record-title"] span, .private-header__heading, h1');
+    if (heading) data.recordName = heading.textContent.trim();
+
+    // Scrape property values from the sidebar
+    const properties = {};
+    document.querySelectorAll('[data-test-id="property-input"]').forEach((el) => {
+      const label = el.closest('[data-test-id="property"]')?.querySelector('[data-test-id="property-label"]');
+      const value = el.textContent.trim();
+      if (label && value && value !== "--") {
+        properties[label.textContent.trim()] = value;
+      }
+    });
+
+    // Also try the "About" section property rows
+    document.querySelectorAll('.private-truncated-content, [data-selenium-test="property-input"]').forEach((el) => {
+      const row = el.closest('[data-selenium-test="property-row"], [class*="PropertyRow"]');
+      if (row) {
+        const label = row.querySelector('[data-selenium-test="property-label"], [class*="PropertyLabel"]');
+        const value = el.textContent.trim();
+        if (label && value && value !== "--") {
+          properties[label.textContent.trim()] = value;
+        }
+      }
+    });
+
+    if (Object.keys(properties).length > 0) data.properties = properties;
+
+    // Associations in the right sidebar (companies, deals, contacts)
+    const associations = {};
+    document.querySelectorAll('[data-test-id="associations-list"]').forEach((list) => {
+      const heading = list.closest('[data-test-id="association"]')?.querySelector('[data-test-id="association-label"]');
+      if (heading) {
+        const items = [];
+        list.querySelectorAll('a').forEach((a) => {
+          const text = a.textContent.trim();
+          if (text) items.push(text);
+        });
+        if (items.length > 0) associations[heading.textContent.trim()] = items;
+      }
+    });
+    if (Object.keys(associations).length > 0) data.associations = associations;
+
+    // Activity feed — recent items
+    const activities = [];
+    document.querySelectorAll('[data-test-id="timeline-event"]').forEach((ev) => {
+      const title = ev.querySelector('[data-test-id="timeline-event-title"]')?.textContent.trim();
+      const timestamp = ev.querySelector('[data-test-id="timeline-event-timestamp"], time')?.textContent.trim();
+      if (title) activities.push({ title, timestamp });
+    });
+    if (activities.length > 0) data.recentActivities = activities.slice(0, 10);
+
+    return Object.keys(data).length > 0 ? data : null;
   }
 
   function esc(s) {
@@ -391,6 +464,13 @@
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           portalId: ctx.portalId || "demo",
           dealId: ctx.objectType === "deal" ? ctx.objectId : null,
+          context: {
+            objectType: ctx.objectType,
+            objectId: ctx.objectId,
+            pageView: ctx.pageView,
+            pageData: ctx.pageData,
+            url: window.location.href,
+          },
         }),
       });
 

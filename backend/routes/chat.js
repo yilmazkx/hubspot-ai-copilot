@@ -31,7 +31,15 @@ Guidelines:
 - If multiple actions are needed, you may call multiple tools. Fetch data first, then act on it.
 - Format responses with clear structure: use bullet points, bold for deal names and amounts.
 - When showing deal info, always include: deal name, stage, amount, and primary contact.
-- If a user asks about "stale" deals, default to 14 days unless they specify otherwise.`;
+- If a user asks about "stale" deals, default to 14 days unless they specify otherwise.
+
+Context awareness:
+- You know which CRM record the user is currently viewing (contact, deal, company). This is provided as page context.
+- When the user says "this contact", "this deal", "this company", "tell me about them", etc., use get_current_record with the objectType and objectId from the context.
+- When asked to research a company or person, use web_search to find information (LinkedIn, company website, news, etc.), then use fetch_webpage to get details from relevant pages.
+- When showing research results, format them as a clear summary card with key facts.
+- You can see the same data the user sees on screen via the pageData context. Use this to understand what they're looking at.
+- Always use your tools to get the latest data — the pageData is a snapshot and may be slightly stale.`;
 
 // ---- Demo mode: simulate Claude's tool use with scripted scenarios ----
 
@@ -178,9 +186,36 @@ async function handleDemoChat(messages, portalId) {
 
 // ---- Real Claude agentic loop ----
 
-async function handleClaudeChat(messages, portalId, dealId) {
+async function handleClaudeChat(messages, portalId, dealId, context) {
   let systemPrompt = SYSTEM_PROMPT;
-  if (dealId) {
+
+  // Inject page context so Claude knows what the user is viewing
+  if (context) {
+    const ctxParts = [];
+    if (context.objectType && context.objectId) {
+      ctxParts.push(`The user is currently viewing a ${context.objectType} record (ID: ${context.objectId}).`);
+    }
+    if (context.pageView) {
+      ctxParts.push(`The user is on the ${context.pageView} page.`);
+    }
+    if (context.pageData) {
+      if (context.pageData.recordName) {
+        ctxParts.push(`Record name: "${context.pageData.recordName}"`);
+      }
+      if (context.pageData.properties && Object.keys(context.pageData.properties).length > 0) {
+        ctxParts.push(`Visible properties: ${JSON.stringify(context.pageData.properties)}`);
+      }
+      if (context.pageData.associations && Object.keys(context.pageData.associations).length > 0) {
+        ctxParts.push(`Associations: ${JSON.stringify(context.pageData.associations)}`);
+      }
+      if (context.pageData.recentActivities) {
+        ctxParts.push(`Recent activities: ${JSON.stringify(context.pageData.recentActivities.slice(0, 5))}`);
+      }
+    }
+    if (ctxParts.length > 0) {
+      systemPrompt += `\n\nCurrent page context:\n${ctxParts.join("\n")}`;
+    }
+  } else if (dealId) {
     systemPrompt += `\n\nThe user is currently viewing deal ID: ${dealId}. Use this context when relevant.`;
   }
 
@@ -310,9 +345,10 @@ router.post("/chat", chatLimiter, async (req, res) => {
       }
     }
 
+    const { context } = req.body;
     const result = DEMO_MODE
       ? await handleDemoChat(messages, portalId)
-      : await handleClaudeChat(messages, portalId, dealId);
+      : await handleClaudeChat(messages, portalId, dealId, context);
 
     return res.json(result);
   } catch (err) {

@@ -87,6 +87,71 @@ const READ_TOOLS = [
       required: ["query"],
     },
   },
+  {
+    name: "get_current_record",
+    description:
+      "Fetch the full details of the CRM record the user is currently viewing (contact, company, or deal). Use this when the user asks about 'this contact', 'this deal', 'this company', or refers to what they're currently looking at. Requires objectType and objectId from the page context.",
+    input_schema: {
+      type: "object",
+      properties: {
+        object_type: {
+          type: "string",
+          enum: ["contact", "company", "deal"],
+          description: "The type of CRM record",
+        },
+        object_id: {
+          type: "string",
+          description: "The HubSpot record ID",
+        },
+      },
+      required: ["object_type", "object_id"],
+    },
+  },
+  {
+    name: "web_search",
+    description:
+      "Search the web for information. Use this to research companies (by domain/name), find LinkedIn profiles, look up people, or gather any external information not available in HubSpot. Returns search results with titles, snippets, and URLs.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "The search query (e.g. 'John Smith LinkedIn Acme Corp', 'acmecorp.com company info')",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "fetch_webpage",
+    description:
+      "Fetch and extract text content from a webpage URL. Use this after web_search to get detailed information from a specific page (e.g. a LinkedIn profile, company about page, blog post). Returns the page text content.",
+    input_schema: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "The full URL to fetch",
+        },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "get_company_detail",
+    description:
+      "Get full details for a HubSpot company record including properties, associated contacts, and deals.",
+    input_schema: {
+      type: "object",
+      properties: {
+        company_id: {
+          type: "string",
+          description: "The HubSpot company ID",
+        },
+      },
+      required: ["company_id"],
+    },
+  },
 ];
 
 const WRITE_TOOLS = [

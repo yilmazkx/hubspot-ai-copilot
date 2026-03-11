@@ -266,6 +266,47 @@ async function getContacts(portalId, query) {
   return (result.results || []).map((c) => ({ contactId: c.id, ...c.properties }));
 }
 
+async function getCompanyDetail(portalId, companyId) {
+  const client = await getClient(portalId);
+
+  const company = await client.crm.companies.basicApi.getById(companyId, [
+    "name", "domain", "industry", "numberofemployees", "annualrevenue",
+    "city", "state", "country", "description", "website", "phone",
+    "linkedin_company_page", "createdate", "hs_lastmodifieddate",
+    "hubspot_owner_id", "type", "hs_lead_status",
+  ]);
+
+  // Get associated contacts
+  let contacts = [];
+  try {
+    const assoc = await client.crm.companies.associationsApi.getAll(companyId, "contacts");
+    contacts = await Promise.all(
+      (assoc.results || []).slice(0, 10).map(async (a) => {
+        const c = await client.crm.contacts.basicApi.getById(a.toObjectId, [
+          "firstname", "lastname", "email", "jobtitle", "phone",
+        ]);
+        return { contactId: c.id, ...c.properties };
+      })
+    );
+  } catch {}
+
+  // Get associated deals
+  let deals = [];
+  try {
+    const assoc = await client.crm.companies.associationsApi.getAll(companyId, "deals");
+    deals = await Promise.all(
+      (assoc.results || []).slice(0, 10).map(async (a) => {
+        const d = await client.crm.deals.basicApi.getById(a.toObjectId, [
+          "dealname", "dealstage", "amount", "closedate",
+        ]);
+        return { dealId: d.id, ...d.properties };
+      })
+    );
+  } catch {}
+
+  return { type: "company", companyId, ...company.properties, contacts, deals };
+}
+
 async function createDraftEmail(portalId, dealId, toEmail, subject, body) {
   const client = await getClient(portalId);
 
@@ -376,6 +417,7 @@ module.exports = {
   getDealDetail,
   getStaleDeals,
   getContacts,
+  getCompanyDetail,
   createDraftEmail,
   sendEmail,
   createTask,
