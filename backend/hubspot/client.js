@@ -1,10 +1,11 @@
 const hubspot = require("@hubspot/api-client");
 
-// Token storage — uses Vercel KV in production, in-memory Map locally
-const isVercel = !!process.env.VERCEL;
+// Token storage — uses Vercel KV when available, falls back to in-memory
+const useKV = !!process.env.KV_REST_API_URL;
 let kv;
-if (isVercel) {
-  kv = require("@vercel/kv");
+if (useKV) {
+  const { kv: kvClient } = require("@vercel/kv");
+  kv = kvClient;
 }
 const localStore = new Map();
 
@@ -15,7 +16,7 @@ async function storeTokens(portalId, tokens) {
     expiresAt: Date.now() + tokens.expiresIn * 1000,
   };
   const key = `hs_tokens:${portalId}`;
-  if (isVercel) {
+  if (useKV) {
     await kv.set(key, JSON.stringify(data), { ex: 60 * 60 * 24 * 90 }); // 90 day TTL
   } else {
     localStore.set(key, data);
@@ -24,7 +25,7 @@ async function storeTokens(portalId, tokens) {
 
 async function getTokens(portalId) {
   const key = `hs_tokens:${portalId}`;
-  if (isVercel) {
+  if (useKV) {
     const raw = await kv.get(key);
     return raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
   }
@@ -33,7 +34,7 @@ async function getTokens(portalId) {
 
 async function deleteTokens(portalId) {
   const key = `hs_tokens:${portalId}`;
-  if (isVercel) {
+  if (useKV) {
     await kv.del(key);
   } else {
     localStore.delete(key);
