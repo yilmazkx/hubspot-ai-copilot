@@ -298,7 +298,8 @@ router.post("/chat", chatLimiter, async (req, res) => {
       const { getTokens } = require("../hubspot/client");
       const tokens = await getTokens(portalId);
       if (!tokens) {
-        const authUrl = `${req.protocol}://${req.get("host")}/auth/authorize`;
+        const proto = process.env.VERCEL ? "https" : req.protocol;
+        const authUrl = `${proto}://${req.get("host")}/auth/authorize`;
         return res.json({
           response: null,
           auth_required: true,

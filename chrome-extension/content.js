@@ -408,7 +408,7 @@
 
       if (data.error) {
         messages.push({ role: "assistant", content: "Error: " + data.error + (data.details ? "\n" + data.details : "") });
-      } else {
+      } else if (data.response) {
         messages.push({ role: "assistant", content: data.response });
       }
       renderMessages();
