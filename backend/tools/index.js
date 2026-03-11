@@ -152,13 +152,10 @@ const READ_TOOLS = [
       required: ["company_id"],
     },
   },
-];
-
-const WRITE_TOOLS = [
   {
     name: "create_draft_email",
     description:
-      "Create a draft email associated with a deal. The draft will be saved but NOT sent until the user confirms. Always use this before send_email to let the user review first.",
+      "Create a draft email associated with a deal in HubSpot. The draft will be saved in HubSpot but NOT sent — the user can review and send it from HubSpot. Use this when the user asks you to draft or prepare an email.",
     input_schema: {
       type: "object",
       properties: {
@@ -182,6 +179,9 @@ const WRITE_TOOLS = [
       required: ["deal_id", "to_email", "subject", "body"],
     },
   },
+];
+
+const WRITE_TOOLS = [
   {
     name: "send_email",
     description:
