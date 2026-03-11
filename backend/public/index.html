@@ -249,6 +249,16 @@ let messages = [];
 let loading = false;
 let currentPending = [];
 
+// Read API key from URL param for demo UI: ?key=your-key
+const urlParams = new URLSearchParams(window.location.search);
+const API_KEY = urlParams.get("key") || "";
+
+function apiHeaders() {
+  const h = { "Content-Type": "application/json" };
+  if (API_KEY) h["x-api-key"] = API_KEY;
+  return h;
+}
+
 const TOOL_LABELS = {
   get_pipeline_summary: "Fetching pipeline summary",
   get_deals: "Searching deals",
@@ -410,7 +420,7 @@ async function confirmActions() {
   try {
     const res = await fetch(BACKEND + "/api/chat/confirm", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders(),
       body: JSON.stringify({
         portalId: PORTAL_ID,
         actions: currentPending.map(a => ({ tool: a.tool, input: a.input })),
@@ -453,7 +463,7 @@ async function sendMessage() {
   try {
     const res = await fetch(BACKEND + "/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders(),
       body: JSON.stringify({
         messages: messages.map(m => ({ role: m.role, content: m.content })),
         portalId: PORTAL_ID,
