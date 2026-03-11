@@ -38,6 +38,7 @@
   let loading = false;
   let pendingActions = [];
   let apiKey = "";
+  let language = "de";
   let isOpen = false;
   let settingsVisible = false;
 
@@ -176,6 +177,29 @@
     }
   }
 
+  function saveLanguage(lang) {
+    language = lang;
+    try {
+      chrome.storage.local.set({ copilotLanguage: lang });
+    } catch {
+      localStorage.setItem("copilotLanguage", lang);
+    }
+  }
+
+  function loadLanguage() {
+    try {
+      chrome.storage.local.get("copilotLanguage", (result) => {
+        if (result.copilotLanguage) {
+          language = result.copilotLanguage;
+          const sel = document.getElementById("copilot-lang-select");
+          if (sel) sel.value = language;
+        }
+      });
+    } catch {
+      language = localStorage.getItem("copilotLanguage") || "de";
+    }
+  }
+
   // --- Build UI ---
   function createUI() {
     // Floating action button
@@ -197,18 +221,27 @@
         <button class="copilot-header-close" id="copilot-close" title="Close (⌘⇧K)">✕</button>
       </div>
       <div class="copilot-settings" id="copilot-settings" style="display:none">
-        <span>API Key:</span>
-        <input type="password" id="copilot-key-input" placeholder="Enter your API key" />
+        <div class="copilot-settings-row">
+          <span>API Key:</span>
+          <input type="password" id="copilot-key-input" placeholder="Enter your API key" />
+        </div>
+        <div class="copilot-settings-row">
+          <span>Sprache:</span>
+          <select id="copilot-lang-select">
+            <option value="de">Deutsch</option>
+            <option value="en">English</option>
+          </select>
+        </div>
         <button id="copilot-key-save">Save</button>
       </div>
       <div class="copilot-messages" id="copilot-messages">
         <div class="copilot-empty" id="copilot-empty">
-          <h3>Hi! I'm your CRM Copilot.</h3>
-          <p>Try asking:</p>
+          <h3>Hi! Ich bin dein CRM Copilot.</h3>
+          <p>Probier z.B.:</p>
           <div class="copilot-suggestions">
-            <button class="copilot-suggestion" data-msg="Show me my pipeline summary">Show me my pipeline summary</button>
-            <button class="copilot-suggestion" data-msg="Find deals with no activity in 14 days">Find deals with no activity in 14 days</button>
-            <button class="copilot-suggestion" data-msg="Draft follow-up emails for stale deals">Draft follow-up emails for stale deals</button>
+            <button class="copilot-suggestion" data-msg="Zeig mir meine Pipeline">Zeig mir meine Pipeline</button>
+            <button class="copilot-suggestion" data-msg="Recherchiere diese Firma">Recherchiere diese Firma</button>
+            <button class="copilot-suggestion" data-msg="Erstelle eine Follow-up E-Mail">Erstelle eine Follow-up E-Mail</button>
           </div>
         </div>
       </div>
@@ -234,11 +267,11 @@
     });
     document.getElementById("copilot-key-save").addEventListener("click", () => {
       const key = document.getElementById("copilot-key-input").value.trim();
-      if (key) {
-        saveApiKey(key);
-        settingsVisible = false;
-        document.getElementById("copilot-settings").style.display = "none";
-      }
+      if (key) saveApiKey(key);
+      const lang = document.getElementById("copilot-lang-select").value;
+      saveLanguage(lang);
+      settingsVisible = false;
+      document.getElementById("copilot-settings").style.display = "none";
     });
 
     // Suggestion buttons
@@ -251,6 +284,7 @@
 
     updateContext();
     loadApiKey();
+    loadLanguage();
   }
 
   function updateContext() {
@@ -464,6 +498,7 @@
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
           portalId: ctx.portalId || "demo",
           dealId: ctx.objectType === "deal" ? ctx.objectId : null,
+          language,
           context: {
             objectType: ctx.objectType,
             objectId: ctx.objectId,
