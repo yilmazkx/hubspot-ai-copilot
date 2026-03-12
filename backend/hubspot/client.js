@@ -1,11 +1,13 @@
 const hubspot = require("@hubspot/api-client");
 
-// Token storage — uses Vercel KV when available, falls back to in-memory
-const useKV = !!process.env.KV_REST_API_URL;
-let kv;
-if (useKV) {
-  const { kv: kvClient } = require("@vercel/kv");
-  kv = kvClient;
+// Token storage — uses Redis when available, falls back to in-memory
+const redisUrl = process.env.KV_REDIS_URL || process.env.KV_REST_API_URL;
+const useRedis = !!redisUrl;
+let redis;
+if (useRedis) {
+  const Redis = require("ioredis");
+  redis = new Redis(redisUrl, { maxRetriesPerRequest: 2, lazyConnect: true });
+  redis.connect().catch((err) => console.error("Redis connect error:", err.message));
 }
 const localStore = new Map();
 
@@ -16,8 +18,8 @@ async function storeTokens(portalId, tokens) {
     expiresAt: Date.now() + tokens.expiresIn * 1000,
   };
   const key = `hs_tokens:${portalId}`;
-  if (useKV) {
-    await kv.set(key, JSON.stringify(data), { ex: 60 * 60 * 24 * 90 }); // 90 day TTL
+  if (useRedis) {
+    await redis.set(key, JSON.stringify(data), "EX", 60 * 60 * 24 * 90); // 90 day TTL
   } else {
     localStore.set(key, data);
   }
@@ -25,17 +27,17 @@ async function storeTokens(portalId, tokens) {
 
 async function getTokens(portalId) {
   const key = `hs_tokens:${portalId}`;
-  if (useKV) {
-    const raw = await kv.get(key);
-    return raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
+  if (useRedis) {
+    const raw = await redis.get(key);
+    return raw ? JSON.parse(raw) : null;
   }
   return localStore.get(key) || null;
 }
 
 async function deleteTokens(portalId) {
   const key = `hs_tokens:${portalId}`;
-  if (useKV) {
-    await kv.del(key);
+  if (useRedis) {
+    await redis.del(key);
   } else {
     localStore.delete(key);
   }
@@ -411,8 +413,8 @@ async function addNote(portalId, dealId, noteBody) {
 
 async function storeUserInfo(portalId, userInfo) {
   const key = `hs_user:${portalId}`;
-  if (useKV) {
-    await kv.set(key, JSON.stringify(userInfo), { ex: 60 * 60 * 24 * 90 });
+  if (useRedis) {
+    await redis.set(key, JSON.stringify(userInfo), "EX", 60 * 60 * 24 * 90);
   } else {
     localStore.set(key, userInfo);
   }
@@ -420,9 +422,9 @@ async function storeUserInfo(portalId, userInfo) {
 
 async function getUserInfo(portalId) {
   const key = `hs_user:${portalId}`;
-  if (useKV) {
-    const raw = await kv.get(key);
-    return raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
+  if (useRedis) {
+    const raw = await redis.get(key);
+    return raw ? JSON.parse(raw) : null;
   }
   return localStore.get(key) || null;
 }
@@ -431,16 +433,16 @@ async function getUserInfo(portalId) {
 
 async function getUserMemory(ownerId) {
   const key = `memory:${ownerId}`;
-  if (useKV) {
-    return (await kv.get(key)) || "";
+  if (useRedis) {
+    return (await redis.get(key)) || "";
   }
   return localStore.get(key) || "";
 }
 
 async function setUserMemory(ownerId, content) {
   const key = `memory:${ownerId}`;
-  if (useKV) {
-    await kv.set(key, content, { ex: 60 * 60 * 24 * 365 }); // 1 year TTL
+  if (useRedis) {
+    await redis.set(key, content, "EX", 60 * 60 * 24 * 365); // 1 year TTL
   } else {
     localStore.set(key, content);
   }
