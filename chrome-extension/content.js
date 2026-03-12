@@ -513,6 +513,16 @@
       const data = await res.json();
       removeThinking();
 
+      // Handle API key errors — prompt to enter key in settings
+      if (res.status === 401 || res.status === 403) {
+        messages.push({ role: "assistant", content: "API Key fehlt oder ist ungültig. Bitte klicke auf ⚙ und gib deinen API Key ein." });
+        renderMessages();
+        settingsVisible = true;
+        document.getElementById("copilot-settings").style.display = "flex";
+        setLoading(false);
+        return;
+      }
+
       // Handle auth_required — show clickable authorize link
       if (data.auth_required) {
         showAuthPrompt(data.auth_url);
