@@ -407,11 +407,69 @@ async function addNote(portalId, dealId, noteBody) {
   return { noteId: result.id, status: "created" };
 }
 
+// --- User identity storage ---
+
+async function storeUserInfo(portalId, userInfo) {
+  const key = `hs_user:${portalId}`;
+  if (useKV) {
+    await kv.set(key, JSON.stringify(userInfo), { ex: 60 * 60 * 24 * 90 });
+  } else {
+    localStore.set(key, userInfo);
+  }
+}
+
+async function getUserInfo(portalId) {
+  const key = `hs_user:${portalId}`;
+  if (useKV) {
+    const raw = await kv.get(key);
+    return raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null;
+  }
+  return localStore.get(key) || null;
+}
+
+// --- Per-user memory storage ---
+
+async function getUserMemory(ownerId) {
+  const key = `memory:${ownerId}`;
+  if (useKV) {
+    return (await kv.get(key)) || "";
+  }
+  return localStore.get(key) || "";
+}
+
+async function setUserMemory(ownerId, content) {
+  const key = `memory:${ownerId}`;
+  if (useKV) {
+    await kv.set(key, content, { ex: 60 * 60 * 24 * 365 }); // 1 year TTL
+  } else {
+    localStore.set(key, content);
+  }
+}
+
+// --- Get owners list ---
+
+async function getOwners(portalId) {
+  const client = await getClient(portalId);
+  const response = await client.crm.owners.ownersApi.getPage();
+  return (response.results || []).map((o) => ({
+    ownerId: o.id,
+    email: o.email,
+    firstName: o.firstName,
+    lastName: o.lastName,
+    userId: o.userId,
+  }));
+}
+
 module.exports = {
   storeTokens,
   getTokens,
   deleteTokens,
   getClient,
+  storeUserInfo,
+  getUserInfo,
+  getUserMemory,
+  setUserMemory,
+  getOwners,
   getPipelineSummary,
   getDeals,
   getDealDetail,

@@ -1,12 +1,13 @@
 const isDemoMode = !process.env.HUBSPOT_CLIENT_ID || !process.env.HUBSPOT_CLIENT_SECRET;
 const hs = isDemoMode ? require("../hubspot/mock") : require("../hubspot/client");
+const { getUserMemory, setUserMemory } = require("../hubspot/client");
 const web = require("./web");
 
 /**
  * Execute a tool by name with the given input.
  * Returns the result object to be sent back to Claude.
  */
-async function executeTool(toolName, input, portalId) {
+async function executeTool(toolName, input, portalId, ownerId) {
   switch (toolName) {
     case "get_pipeline_summary":
       return await hs.getPipelineSummary(portalId);
@@ -55,6 +56,16 @@ async function executeTool(toolName, input, portalId) {
 
     case "add_note":
       return await hs.addNote(portalId, input.deal_id, input.note_body);
+
+    case "save_memory": {
+      if (!ownerId) return { status: "skipped", reason: "No user identity available" };
+      const existing = await getUserMemory(ownerId);
+      const timestamp = new Date().toISOString().split("T")[0];
+      const newEntry = `- [${timestamp}] ${input.content}`;
+      const updated = existing ? `${existing}\n${newEntry}` : newEntry;
+      await setUserMemory(ownerId, updated);
+      return { status: "saved", content: input.content };
+    }
 
     default:
       throw new Error(`Unknown tool: ${toolName}`);

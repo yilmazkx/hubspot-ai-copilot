@@ -179,6 +179,21 @@ const READ_TOOLS = [
       required: ["deal_id", "to_email", "subject", "body"],
     },
   },
+  {
+    name: "save_memory",
+    description:
+      "Save a learning or preference about the current user for future conversations. Use this when you notice patterns in the user's communication style, demo preferences, industry focus, preferred email tone, common requests, or any other useful context. Call this proactively — don't ask the user for permission. Examples: 'Bevorzugt kurze, direkte E-Mails', 'Fokus auf Versicherungs-Branche', 'Nutzt gerne Bullet Points', 'Zeigt in Demos immer zuerst den KI-Agent'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        content: {
+          type: "string",
+          description: "The observation or preference to remember about this user. Write in German. Be specific and actionable.",
+        },
+      },
+      required: ["content"],
+    },
+  },
 ];
 
 const WRITE_TOOLS = [

@@ -4,6 +4,8 @@ const fs = require("fs");
 const path = require("path");
 const { ALL_TOOLS, WRITE_TOOL_NAMES } = require("../tools/index");
 const { executeTool } = require("../tools/execute");
+const { getUserMemory, setUserMemory, getUserInfo } = require("../hubspot/client");
+
 
 const router = express.Router();
 
@@ -75,6 +77,16 @@ Wenn der User nach Infos über einen Kontakt oder eine Firma fragt:
 - Pain Points der Branche direkt ansprechen
 - DSGVO-Konformität als Trust-Signal
 - Klarer CTA
+
+## Memory — Lerne vom Nutzer
+Du hast ein Gedächtnis über jeden Sales Manager. Nutze das save_memory Tool proaktiv, um dir Dinge zu merken:
+- **E-Mail-Stil**: Wenn du eine E-Mail schreibst und der User sie korrigiert oder umformuliert → merke dir den Stil
+- **Demo-Schwerpunkte**: Wenn der User erwähnt, welche Features er in Demos zeigt → merken
+- **Branchenfokus**: Wenn der User hauptsächlich in bestimmten Branchen arbeitet → merken
+- **Kommunikationspräferenzen**: Formell/informell, Sprache, Detailgrad → merken
+- **Häufige Anfragen**: Wenn der User immer wieder das Gleiche fragt → merken und proaktiv anbieten
+- **Korrekturen**: Wenn der User dich korrigiert ("Nein, so nicht, sondern...") → merken für die Zukunft
+Speichere Beobachtungen still im Hintergrund — frage nicht um Erlaubnis.
 
 ## Superchat Kontext
 ${COPILOT_CONTEXT}`;
@@ -224,8 +236,24 @@ async function handleDemoChat(messages, portalId) {
 
 // ---- Real Claude agentic loop ----
 
-async function handleClaudeChat(messages, portalId, dealId, context, language) {
+async function handleClaudeChat(messages, portalId, dealId, context, language, userIdentity) {
   let systemPrompt = SYSTEM_PROMPT;
+
+  // Inject user identity
+  if (userIdentity) {
+    const name = [userIdentity.firstName, userIdentity.lastName].filter(Boolean).join(" ") || "unbekannt";
+    systemPrompt += `\n\n## Aktueller Nutzer\nDu sprichst mit **${name}** (${userIdentity.email || ""}), Owner ID: ${userIdentity.ownerId || "unbekannt"}. Sprich den Nutzer mit Vornamen an.`;
+  }
+
+  // Inject user memory (learned preferences, style, etc.)
+  if (userIdentity?.ownerId) {
+    try {
+      const memory = await getUserMemory(userIdentity.ownerId);
+      if (memory) {
+        systemPrompt += `\n\n## Dein Wissen über diesen Nutzer (aus früheren Gesprächen)\n${memory}`;
+      }
+    } catch {}
+  }
 
   // Inject language preference
   if (language && language !== "de") {
@@ -310,7 +338,7 @@ async function handleClaudeChat(messages, portalId, dealId, context, language) {
       } else {
         toolSteps.push({ tool: name, input, status: "executing" });
         try {
-          const result = await executeTool(name, input, portalId);
+          const result = await executeTool(name, input, portalId, userIdentity?.ownerId);
           toolSteps[toolSteps.length - 1].status = "complete";
           toolResults.push({
             type: "tool_result",
@@ -389,9 +417,18 @@ router.post("/chat", chatLimiter, async (req, res) => {
     }
 
     const { context, language } = req.body;
+
+    // Load user identity for personalization
+    let userIdentity = null;
+    if (!DEMO_MODE) {
+      try {
+        userIdentity = await getUserInfo(portalId);
+      } catch {}
+    }
+
     const result = DEMO_MODE
       ? await handleDemoChat(messages, portalId)
-      : await handleClaudeChat(messages, portalId, dealId, context, language);
+      : await handleClaudeChat(messages, portalId, dealId, context, language, userIdentity);
 
     return res.json(result);
   } catch (err) {
@@ -422,6 +459,26 @@ router.post("/chat/confirm", async (req, res) => {
   } catch (err) {
     console.error("Confirm error:", err);
     res.status(500).json({ error: "Confirm failed", details: err.message });
+  }
+});
+
+// GET /api/memory/:ownerId — view user memory
+router.get("/memory/:ownerId", async (req, res) => {
+  try {
+    const memory = await getUserMemory(req.params.ownerId);
+    res.json({ ownerId: req.params.ownerId, memory: memory || "" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/memory/:ownerId — reset user memory
+router.delete("/memory/:ownerId", async (req, res) => {
+  try {
+    await setUserMemory(req.params.ownerId, "");
+    res.json({ status: "cleared" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

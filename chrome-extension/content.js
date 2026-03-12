@@ -19,6 +19,7 @@
     create_task: "Creating task",
     update_deal_stage: "Updating deal stage",
     add_note: "Adding note",
+    save_memory: "Learning preference",
   };
   const STATUS_ICONS = {
     executing: "\u{1F50D}",

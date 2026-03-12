@@ -1,6 +1,6 @@
 const express = require("express");
 const hubspot = require("@hubspot/api-client");
-const { storeTokens, getTokens } = require("../hubspot/client");
+const { storeTokens, getTokens, storeUserInfo, getUserInfo, getOwners } = require("../hubspot/client");
 
 const router = express.Router();
 
@@ -9,6 +9,7 @@ const SCOPES = [
   "crm.objects.deals.write",
   "crm.objects.contacts.read",
   "crm.objects.contacts.write",
+  "crm.objects.owners.read",
   "crm.schemas.deals.read",
   "sales-email-read",
   "timeline",
@@ -52,6 +53,25 @@ router.get("/callback", async (req, res) => {
       expiresIn: tokenResponse.expiresIn,
     });
 
+    // Store the authorizing user's info
+    const userEmail = accountInfo.user;
+    const hubspotUserId = accountInfo.userId;
+    try {
+      const ownerClient = new hubspot.Client({ accessToken: tokenResponse.accessToken });
+      const ownersResp = await ownerClient.crm.owners.ownersApi.getPage();
+      const owner = (ownersResp.results || []).find((o) => o.email === userEmail);
+      await storeUserInfo(portalId, {
+        email: userEmail,
+        hubspotUserId,
+        ownerId: owner?.id || null,
+        firstName: owner?.firstName || null,
+        lastName: owner?.lastName || null,
+      });
+    } catch (e) {
+      // Non-critical — store what we have
+      await storeUserInfo(portalId, { email: userEmail, hubspotUserId, ownerId: null, firstName: null, lastName: null });
+    }
+
     // Success page — auto-closes after 2s if opened as popup
     res.send(`<!DOCTYPE html>
 <html><head><title>Connected!</title>
@@ -89,6 +109,30 @@ router.get("/status/:portalId", async (req, res) => {
   }
   const tokens = await getTokens(req.params.portalId);
   res.json({ authorized: !!tokens });
+});
+
+// GET /auth/me/:portalId — get current user info + memory
+router.get("/me/:portalId", async (req, res) => {
+  try {
+    const isDemoMode = !process.env.HUBSPOT_CLIENT_ID || !process.env.HUBSPOT_CLIENT_SECRET;
+    if (isDemoMode) {
+      return res.json({ user: { firstName: "Demo", lastName: "User", email: "demo@example.com", ownerId: "demo" }, owners: [] });
+    }
+    const userInfo = await getUserInfo(req.params.portalId);
+    if (!userInfo) {
+      return res.json({ user: null });
+    }
+
+    // Also return all owners so the extension can detect the current user
+    let owners = [];
+    try {
+      owners = await getOwners(req.params.portalId);
+    } catch {}
+
+    res.json({ user: userInfo, owners });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
